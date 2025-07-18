@@ -7,6 +7,10 @@ rmf_fleet:
     prefix: "http://127.0.0.1:8000"
     user: "some_user"
     password: "some_password"
+  local_robot:
+    server_url: 'http://localhost:6677'
+    token: "Set token for namespace and role"
+    namespace: "/robot"
   limits:
     linear: [0.4, 0.2] # velocity, acceleration
     angular: [0.3, 0.35] # velocity, acceleration
