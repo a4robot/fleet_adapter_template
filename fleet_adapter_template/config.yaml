@@ -4,12 +4,12 @@
 rmf_fleet:
   name: "DeliveryBot"
   fleet_manager:
-    prefix: "http://127.0.0.1:8000"
+    prefix: "http://localhost:8000/_internal"
     user: "some_user"
     password: "some_password"
   local_robot:
     server_url: 'http://localhost:6677'
-    token: "Set token for namespace and role"
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lc3BhY2UiOiIvcm9ib3QiLCJyb2xlIjoiZmxlZXRfYWRhcHRlciIsImlhdCI6MTc1Mjg0NDgzOX0.Abe0agZCJ0mJj0eSeAHdDIkG0pt1Pyc_SBS6tZwbCpg"
     namespace: "/robot"
   limits:
     linear: [0.4, 0.2] # velocity, acceleration
@@ -52,13 +52,13 @@ robots:
     rmf_config:
       robot_state_update_frequency: 0.5
       start:
-        map_name: "L1"
+        map_name: "empty_warehouse"
         # waypoint: "charger_deliverybot1" # Optional
         # orientation: 0.0 # Optional, radians
-        waypoint: null
-        orientation: null
+        waypoint: "standby1"
+        orientation: 0.0
       charger:
-        waypoint: "charger_deliverybot1"
+        waypoint: "standby1"
   # Configuration for the second robot in this fleet if there is a second robot
   # Uncomment if more than one robot exists.
   # deliverybot2:
@@ -79,11 +79,21 @@ robots:
 # For computing transforms between Robot and RMF coordinate systems
 
 reference_coordinates:
-  rmf: [[20.33, -3.156],
-        [8.908, -2.57],
-        [13.02, -3.601],
-        [21.93, -4.124]]
-  robot: [[59, 399],
-        [57, 172],
-        [68, 251],
-        [75, 429]]
+  robot:
+  - - -7.64374
+    - -4.95479
+  - - -7.64374
+    - 47.54521
+  - - 26.906260000000003
+    - -4.95479
+  - - 26.906260000000003
+    - 47.54521
+  rmf:
+  - - 0
+    - -1050
+  - - 0
+    - 0
+  - - 691
+    - -1050
+  - - 691
+    - 0

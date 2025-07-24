@@ -166,7 +166,11 @@ def initialize_fleet(config_yaml, nav_graph_path, node, use_sim_time, server_uri
     api = RobotAPI(
         fleet_config['fleet_manager']['prefix'],
         fleet_config['fleet_manager']['user'],
-        fleet_config['fleet_manager']['password'])
+        fleet_config['fleet_manager']['password'],
+        fleet_config['local_robot']['server_url'],
+        fleet_config['local_robot']['token'],
+        fleet_config['local_robot']['namespace']
+    )
 
     # Initialize robots for this fleet
 
@@ -208,7 +212,7 @@ def initialize_fleet(config_yaml, nav_graph_path, node, use_sim_time, server_uri
                     else:
                         node.get_logger().info(
                             f"Running compute_plan_starts for robot: "
-                            "{robot_name}")
+                            f"{robot_name}")
                         starts = plan.compute_plan_starts(
                             nav_graph,
                             rmf_config['start']['map_name'],

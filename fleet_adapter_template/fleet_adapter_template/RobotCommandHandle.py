@@ -346,6 +346,7 @@ class RobotCommandHandle(adpt.RobotCommandHandle):
                 [position[0], position[1]])
             theta = math.radians(position[2]) - \
                 self.transforms['orientation_offset']
+            # print( f'Send position in rmf is {x}, {y}')
             # ------------------------ #
             # IMPLEMENT YOUR CODE HERE #
             # Ensure x, y are in meters and theta in radians #

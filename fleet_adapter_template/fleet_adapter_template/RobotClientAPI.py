@@ -21,76 +21,117 @@
     these functions.
 '''
 
+import typing
+import socketio
+import threading
 
 class RobotAPI:
     # The constructor below accepts parameters typically required to submit
     # http requests. Users should modify the constructor as per the
     # requirements of their robot's API
-    def __init__(self, prefix: str, user: str, password: str):
+    def __init__(self, 
+                prefix: str, user: str, password: str,
+                server_url : str, token : str, namespace : str 
+        ):
+
+        self.server_url = server_url
+        self.token = token
+        self.namespace = namespace
+
+        self.sio = socketio.Client( reconnection = False)
+        self.sio.on('connect', self._on_connect)
+        self.sio.on('connect_error', self._on_connect_error)
+        self.sio.on('disconnect', self._on_disconnect)
+        self.robot_pose : typing.Dict[str, float]= {}
+        self.sio.on('receive_pose', self._on_position )
+
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+
+        # Original
         self.prefix = prefix
         self.user = user
         self.password = password
-        self.connected = False
+        self.connected = 0
         # Test connectivity
         connected = self.check_connection()
         if connected:
             print("Successfully able to query API server")
-            self.connected = True
+            self.connected = 1
         else:
             print("Unable to query API server")
 
     def check_connection(self):
+        print( "RobotClient API call check_connection")
         ''' Return True if connection to the robot API server is successful'''
         # ------------------------ #
-        # IMPLEMENT YOUR CODE HERE #
+        # D - IMPLEMENT YOUR CODE HERE #
         # ------------------------ #
-        return True
+        return self.connected != 1
+
+    def _on_position(self, data ):
+        # print('⬇️  Received:', data["x"], data["y"], data["yaw"])
+        self.robot_pose = data
 
     def position(self, robot_name: str):
+        # print( "RobotClient API call position")
+        if len(self.robot_pose) == 0 :
+            return None
+        else:
+            return [self.robot_pose["x"], self.robot_pose["y"], self.robot_pose["yaw"]]
         ''' Return [x, y, theta] expressed in the robot's coordinate frame or
             None if any errors are encountered'''
         # ------------------------ #
-        # IMPLEMENT YOUR CODE HERE #
+        # D - IMPLEMENT YOUR CODE HERE #
         # ------------------------ #
         return None
 
     def navigate(self, robot_name: str, pose, map_name: str):
+        print( f'RobotClient API call navigate to {pose}' )
         ''' Request the robot to navigate to pose:[x,y,theta] where x, y and
             and theta are in the robot's coordinate convention. This function
             should return True if the robot has accepted the request,
             else False'''
+        return True
         # ------------------------ #
         # IMPLEMENT YOUR CODE HERE #
         # ------------------------ #
         return False
 
     def start_process(self, robot_name: str, process: str, map_name: str):
+        print( "RobotClient API call start_process")
         ''' Request the robot to begin a process. This is specific to the robot
             and the use case. For example, load/unload a cart for Deliverybot
             or begin cleaning a zone for a cleaning robot.
             Return True if the robot has accepted the request, else False'''
+        return True
         # ------------------------ #
         # IMPLEMENT YOUR CODE HERE #
         # ------------------------ #
         return False
 
     def stop(self, robot_name: str):
+        print( "RobotClient API call stop")
         ''' Command the robot to stop.
             Return True if robot has successfully stopped. Else False'''
+        return True
         # ------------------------ #
         # IMPLEMENT YOUR CODE HERE #
         # ------------------------ #
         return False
 
     def navigation_remaining_duration(self, robot_name: str):
+        print( "RobotClient API call navigation_remaining_duration")
         ''' Return the number of seconds remaining for the robot to reach its
             destination'''
+        return 10.0
         # ------------------------ #
         # IMPLEMENT YOUR CODE HERE #
         # ------------------------ #
         return 0.0
 
     def navigation_completed(self, robot_name: str):
+        print( "RobotClient API call navigation_completed")
         ''' Return True if the robot has successfully completed its previous
             navigation request. Else False.'''
         # ------------------------ #
@@ -99,6 +140,7 @@ class RobotAPI:
         return False
 
     def process_completed(self, robot_name: str):
+        print( "RobotClient API call process_completed" )
         ''' Return True if the robot has successfully completed its previous
             process request. Else False.'''
         # ------------------------ #
@@ -107,9 +149,36 @@ class RobotAPI:
         return False
 
     def battery_soc(self, robot_name: str):
+        print( "RobotClient API call battery_soc" )
         ''' Return the state of charge of the robot as a value between 0.0
             and 1.0. Else return None if any errors are encountered'''
+        return 1.0
         # ------------------------ #
         # IMPLEMENT YOUR CODE HERE #
         # ------------------------ #
         return None
+    
+    def _on_connect(self):
+        print(f"✔ Connected to {self.server_url} (sid={self.sio.sid})")
+        # Join the namespace with an ack handler
+        def ack_handler(resp=None):
+            if resp is None:
+                print(f"🔗 Joined namespace {self.namespace}")
+            else:
+                print(f"❌ Join failed: {resp}")
+
+        self.sio.emit('register', self.namespace, callback=ack_handler)
+        self.connected = 1
+
+    def _run(self):
+        # Pass the JWT as a query string for the initial handshake
+        self.sio.connect(self.server_url, auth= { 'token' : self.token } )
+        self.sio.wait()
+
+    def _on_connect_error(self, error):
+        print(f"❌ Connection error: {error}")
+        self.connected = 0
+
+    def _on_disconnect(self):
+        print("— Disconnected from server")
+        self.connected = 0
