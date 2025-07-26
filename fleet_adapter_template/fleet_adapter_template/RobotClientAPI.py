@@ -37,13 +37,20 @@ class RobotAPI:
         self.server_url = server_url
         self.token = token
         self.namespace = namespace
+        
+        self.response_fleet_adapater_data = None
+        self.response_fleet_adapater_event = threading.Event()
+        self.response_fleet_adapater_event.clear()
 
         self.sio = socketio.Client( reconnection = False)
         self.sio.on('connect', self._on_connect)
         self.sio.on('connect_error', self._on_connect_error)
         self.sio.on('disconnect', self._on_disconnect)
-        self.robot_pose : typing.Dict[str, float]= {}
-        self.sio.on('receive_pose', self._on_position )
+        self.robot_odom : typing.Dict[str, typing.List[float]]= {
+            "pose" : [],
+            "twist" : [],
+        }
+        self.sio.on('receive_odom', self._on_position )
 
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
@@ -71,14 +78,14 @@ class RobotAPI:
 
     def _on_position(self, data ):
         # print('⬇️  Received:', data["x"], data["y"], data["yaw"])
-        self.robot_pose = data
+        self.robot_odom = data
 
     def position(self, robot_name: str):
         # print( "RobotClient API call position")
-        if len(self.robot_pose) == 0 :
+        if len(self.robot_odom["pose"]) == 0 :
             return None
         else:
-            return [self.robot_pose["x"], self.robot_pose["y"], self.robot_pose["yaw"]]
+            return [self.robot_odom["pose"][0], self.robot_odom["pose"][1], self.robot_odom["pose"][5]]
         ''' Return [x, y, theta] expressed in the robot's coordinate frame or
             None if any errors are encountered'''
         # ------------------------ #
@@ -92,7 +99,22 @@ class RobotAPI:
             and theta are in the robot's coordinate convention. This function
             should return True if the robot has accepted the request,
             else False'''
-        return True
+        
+        request_data = {
+            "type" : "navigate",
+            "pose": pose,
+            "map": map_name
+        }
+
+        self.response_fleet_adapater_event.clear()
+        self.sio.emit( "call_fleet_adapter", request_data, callback = self._callback_response_fleet_adapter )
+
+        if self.response_fleet_adapater_event.wait( timeout = 10.0 ):
+            print( f'Succeess command navigate : {self.response_fleet_adapater_data}')
+            return True
+        else:
+            print( f'Failure command navigate')
+            return False
         # ------------------------ #
         # IMPLEMENT YOUR CODE HERE #
         # ------------------------ #
@@ -182,3 +204,7 @@ class RobotAPI:
     def _on_disconnect(self):
         print("— Disconnected from server")
         self.connected = 0
+
+    def _callback_response_fleet_adapter(self, data ):
+        self.response_fleet_adapater_data = data
+        self.response_fleet_adapater_event.set()
