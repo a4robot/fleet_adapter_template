@@ -21,9 +21,20 @@
     these functions.
 '''
 
+import numpy as np
+
 import typing
 import socketio
 import threading
+
+def norm_angle(rad):
+    result = np.mod( ( np.fabs( rad ) + np.pi), (2*np.pi) ) - np.pi
+    if rad < 0 : 
+        result *= -1
+    return result
+
+def diff_angle( rad_a, rad_b ):
+    return norm_angle( norm_angle( rad_a ) - norm_angle( rad_b ) )
 
 class RobotAPI:
     # The constructor below accepts parameters typically required to submit
@@ -50,7 +61,18 @@ class RobotAPI:
             "pose" : [],
             "twist" : [],
         }
+        self.robot_task : typing.Dict[str, typing.Any ] = {
+            "start" : { "frame" : "", "pose" : []},
+            "goal" : { "frame" : "", "pose" : []},
+            "stamp_finish" : 0.0,
+            "stamp_start" : 0.0,
+            "command" : [],
+            "task" : "",
+        }
         self.sio.on('receive_odom', self._on_position )
+        self.sio.on('receive_task_info', self._on_task_info )
+
+        self.last_nav_pose : typing.List[ float ] = []
 
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
@@ -80,6 +102,9 @@ class RobotAPI:
         # print('⬇️  Received:', data["x"], data["y"], data["yaw"])
         self.robot_odom = data
 
+    def _on_task_info(self, data ):
+        self.robot_task = data
+
     def position(self, robot_name: str):
         # print( "RobotClient API call position")
         if len(self.robot_odom["pose"]) == 0 :
@@ -101,7 +126,7 @@ class RobotAPI:
             else False'''
         
         request_data = {
-            "type" : "navigate",
+            "type" : "guided",
             "pose": pose,
             "map": map_name
         }
@@ -111,6 +136,7 @@ class RobotAPI:
 
         if self.response_fleet_adapater_event.wait( timeout = 10.0 ):
             print( f'Succeess command navigate : {self.response_fleet_adapater_data}')
+            self.last_nav_pose = pose
             return True
         else:
             print( f'Failure command navigate')
@@ -153,9 +179,35 @@ class RobotAPI:
         return 0.0
 
     def navigation_completed(self, robot_name: str):
-        print( "RobotClient API call navigation_completed")
+        # print( "RobotClient API call navigation_completed")
         ''' Return True if the robot has successfully completed its previous
             navigation request. Else False.'''
+        completed = False
+        if len( self.robot_task.get( "start", {} ).get( "pose", [] ) ) == 0:
+            print( "Not completed cause never receive new task info")
+            pass
+        elif np.hypot( 
+            self.last_nav_pose[0] - self.robot_task[ "goal" ][ "pose" ][0],
+            self.last_nav_pose[1] - self.robot_task[ "goal" ][ "pose" ][1]
+        ) > 0.001:
+            print( f'Not completed cause not current goal' \
+                  f' CMD {self.last_nav_pose[0]:.2f} {self.last_nav_pose[1]:.2f}' \
+                  f' GOAL {self.robot_task["goal"]["pose"][0]:.2f} {self.robot_task["goal"]["pose"][1]:.2f}'
+            )
+            pass
+        elif diff_angle( self.last_nav_pose[2] , self.robot_task[ "goal"][ "pose"][5] ) > 0.01:
+            print( f'Not completed cause not current goal' \
+                  f' CMD {self.last_nav_pose[2]:.2f}' \
+                  f' GOAL {self.robot_task["goal"]["pose"][5]:.2f}'
+            )
+            pass
+        elif self.robot_task[ "stamp_finish" ] > self.robot_task[ "stamp_start" ]:
+            print( f'Finish by stamp {self.robot_task[ "stamp_finish"] - self.robot_task["stamp_start"]}')
+            completed = True
+        else:
+            pass
+
+        return completed
         # ------------------------ #
         # IMPLEMENT YOUR CODE HERE #
         # ------------------------ #
